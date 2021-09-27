@@ -2,9 +2,11 @@
 
 use crate::{utils, Separator};
 use serde::de::{
-    Deserialize, DeserializeOwned, Deserializer, Error, MapAccess, SeqAccess, Visitor,
+    Deserialize, DeserializeOwned, Deserializer, Error, IntoDeserializer, MapAccess, SeqAccess,
+    Visitor,
 };
 use serde::ser::{Serialize, Serializer};
+use serde_content::de::Content;
 use std::cmp::Eq;
 #[cfg(doc)]
 use std::collections::{BTreeMap, HashMap};
@@ -1740,20 +1742,12 @@ pub mod default_on_error {
         D: Deserializer<'de>,
         T: Deserialize<'de> + Default,
     {
-        #[derive(Debug, serde::Deserialize)]
-        #[serde(untagged)]
-        enum GoodOrError<T> {
-            Good(T),
-            // This consumes one "item" when `T` errors while deserializing.
-            // This is necessary to make this work, when instead of having a direct value
-            // like integer or string, the deserializer sees a list or map.
-            Error(serde::de::IgnoredAny),
-        }
-
-        Ok(match Deserialize::deserialize(deserializer) {
-            Ok(GoodOrError::Good(res)) => res,
-            _ => Default::default(),
-        })
+        let content: Content<'de> = match Deserialize::deserialize(deserializer) {
+            Ok(c) => c,
+            Err(_) => return Ok(Default::default()),
+        };
+        let value: Result<T, D::Error> = Deserialize::deserialize(content.into_deserializer());
+        Ok(value.unwrap_or_default())
     }
 
     /// Serialize value with the default serializer

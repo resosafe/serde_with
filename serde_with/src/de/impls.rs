@@ -4,6 +4,7 @@ use crate::rust::StringWithSeparator;
 use crate::utils;
 use crate::utils::duration::DurationSigned;
 use serde::de::*;
+use serde_content::de::Content;
 use std::borrow::Cow;
 use std::cell::{Cell, RefCell};
 use std::collections::{BTreeMap, BTreeSet, BinaryHeap, HashMap, HashSet, LinkedList, VecDeque};
@@ -673,28 +674,13 @@ where
     where
         D: Deserializer<'de>,
     {
-        #[derive(serde::Deserialize)]
-        #[serde(
-            untagged,
-            bound(deserialize = "DeserializeAsWrap<T, TAs>: Deserialize<'de>")
-        )]
-        enum GoodOrError<'a, T, TAs>
-        where
-            TAs: DeserializeAs<'a, T>,
-        {
-            Good(DeserializeAsWrap<T, TAs>),
-            // This consumes one "item" when `T` errors while deserializing.
-            // This is necessary to make this work, when instead of having a direct value
-            // like integer or string, the deserializer sees a list or map.
-            Error(IgnoredAny),
-            #[serde(skip)]
-            _JustAMarkerForTheLifetime(PhantomData<&'a u32>),
-        }
-
-        Ok(match Deserialize::deserialize(deserializer) {
-            Ok(GoodOrError::<T, TAs>::Good(res)) => res.into_inner(),
-            _ => Default::default(),
-        })
+        let content: Content<'de> = match Deserialize::deserialize(deserializer) {
+            Ok(c) => c,
+            Err(_) => return Ok(Default::default()),
+        };
+        let value: Result<DeserializeAsWrap<T, TAs>, D::Error> =
+            Deserialize::deserialize(content.into_deserializer());
+        Ok(value.map(|x| x.into_inner()).unwrap_or_default())
     }
 }
 
@@ -1000,29 +986,18 @@ where
     where
         D: Deserializer<'de>,
     {
-        #[derive(serde::Deserialize)]
-        #[serde(
-            untagged,
-            bound(deserialize = r#"DeserializeAsWrap<T, U>: Deserialize<'de>,
-                DeserializeAsWrap<Vec<T>, Vec<U>>: Deserialize<'de>"#),
-            expecting = "a list or single element"
-        )]
-        enum Helper<'a, T, U>
-        where
-            U: DeserializeAs<'a, T>,
-        {
-            One(DeserializeAsWrap<T, U>),
-            Many(DeserializeAsWrap<Vec<T>, Vec<U>>),
-            #[serde(skip)]
-            _JustAMarkerForTheLifetime(PhantomData<&'a u32>),
+        let content: Content<'de> = Deserialize::deserialize(deserializer)?;
+        let one: Result<DeserializeAsWrap<T, U>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(one) = one {
+            return Ok(vec![one.into_inner()]);
         }
-
-        let h: Helper<'de, T, U> = Deserialize::deserialize(deserializer)?;
-        match h {
-            Helper::One(one) => Ok(vec![one.into_inner()]),
-            Helper::Many(many) => Ok(many.into_inner()),
-            Helper::_JustAMarkerForTheLifetime(_) => unreachable!(),
+        let many: Result<DeserializeAsWrap<Vec<T>, Vec<U>>, D::Error> =
+            Deserialize::deserialize(content.into_deserializer());
+        if let Ok(many) = many {
+            return Ok(many.into_inner());
         }
+        Err(D::Error::custom("a list or single element"))
     }
 }
 
@@ -1047,32 +1022,18 @@ where
     where
         D: Deserializer<'de>,
     {
-        #[derive(serde::Deserialize)]
-        #[serde(
-            untagged,
-            bound(deserialize = r#"
-                DeserializeAsWrap<T, TAs1>: Deserialize<'de>,
-                DeserializeAsWrap<T, TAs2>: Deserialize<'de>,
-            "#),
-            expecting = "PickFirst could not deserialize data"
-        )]
-        enum Helper<'a, T, TAs1, TAs2>
-        where
-            TAs1: DeserializeAs<'a, T>,
-            TAs2: DeserializeAs<'a, T>,
-        {
-            First(DeserializeAsWrap<T, TAs1>),
-            Second(DeserializeAsWrap<T, TAs2>),
-            #[serde(skip)]
-            _JustAMarkerForTheLifetime(PhantomData<&'a u32>),
+        let content: Content<'de> = Deserialize::deserialize(deserializer)?;
+        let first: Result<DeserializeAsWrap<T, TAs1>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(first) = first {
+            return Ok(first.into_inner());
         }
-
-        let h: Helper<'de, T, TAs1, TAs2> = Deserialize::deserialize(deserializer)?;
-        match h {
-            Helper::First(first) => Ok(first.into_inner()),
-            Helper::Second(second) => Ok(second.into_inner()),
-            Helper::_JustAMarkerForTheLifetime(_) => unreachable!(),
+        let second: Result<DeserializeAsWrap<T, TAs2>, D::Error> =
+            Deserialize::deserialize(content.into_deserializer());
+        if let Ok(second) = second {
+            return Ok(second.into_inner());
         }
+        Err(D::Error::custom("PickFirst could not deserialize data"))
     }
 }
 
@@ -1086,36 +1047,23 @@ where
     where
         D: Deserializer<'de>,
     {
-        #[derive(serde::Deserialize)]
-        #[serde(
-            untagged,
-            bound(deserialize = r#"
-                DeserializeAsWrap<T, TAs1>: Deserialize<'de>,
-                DeserializeAsWrap<T, TAs2>: Deserialize<'de>,
-                DeserializeAsWrap<T, TAs3>: Deserialize<'de>,
-            "#),
-            expecting = "PickFirst could not deserialize data"
-        )]
-        enum Helper<'a, T, TAs1, TAs2, TAs3>
-        where
-            TAs1: DeserializeAs<'a, T>,
-            TAs2: DeserializeAs<'a, T>,
-            TAs3: DeserializeAs<'a, T>,
-        {
-            First(DeserializeAsWrap<T, TAs1>),
-            Second(DeserializeAsWrap<T, TAs2>),
-            Third(DeserializeAsWrap<T, TAs3>),
-            #[serde(skip)]
-            _JustAMarkerForTheLifetime(PhantomData<&'a u32>),
+        let content: Content<'de> = Deserialize::deserialize(deserializer)?;
+        let first: Result<DeserializeAsWrap<T, TAs1>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(first) = first {
+            return Ok(first.into_inner());
         }
-
-        let h: Helper<'de, T, TAs1, TAs2, TAs3> = Deserialize::deserialize(deserializer)?;
-        match h {
-            Helper::First(first) => Ok(first.into_inner()),
-            Helper::Second(second) => Ok(second.into_inner()),
-            Helper::Third(third) => Ok(third.into_inner()),
-            Helper::_JustAMarkerForTheLifetime(_) => unreachable!(),
+        let second: Result<DeserializeAsWrap<T, TAs2>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(second) = second {
+            return Ok(second.into_inner());
         }
+        let third: Result<DeserializeAsWrap<T, TAs3>, D::Error> =
+            Deserialize::deserialize(content.into_deserializer());
+        if let Ok(third) = third {
+            return Ok(third.into_inner());
+        }
+        Err(D::Error::custom("PickFirst could not deserialize data"))
     }
 }
 
@@ -1130,40 +1078,28 @@ where
     where
         D: Deserializer<'de>,
     {
-        #[derive(serde::Deserialize)]
-        #[serde(
-            untagged,
-            bound(deserialize = r#"
-                DeserializeAsWrap<T, TAs1>: Deserialize<'de>,
-                DeserializeAsWrap<T, TAs2>: Deserialize<'de>,
-                DeserializeAsWrap<T, TAs3>: Deserialize<'de>,
-                DeserializeAsWrap<T, TAs4>: Deserialize<'de>,
-            "#),
-            expecting = "PickFirst could not deserialize data"
-        )]
-        enum Helper<'a, T, TAs1, TAs2, TAs3, TAs4>
-        where
-            TAs1: DeserializeAs<'a, T>,
-            TAs2: DeserializeAs<'a, T>,
-            TAs3: DeserializeAs<'a, T>,
-            TAs4: DeserializeAs<'a, T>,
-        {
-            First(DeserializeAsWrap<T, TAs1>),
-            Second(DeserializeAsWrap<T, TAs2>),
-            Third(DeserializeAsWrap<T, TAs3>),
-            Forth(DeserializeAsWrap<T, TAs4>),
-            #[serde(skip)]
-            _JustAMarkerForTheLifetime(PhantomData<&'a u32>),
+        let content: Content<'de> = Deserialize::deserialize(deserializer)?;
+        let first: Result<DeserializeAsWrap<T, TAs1>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(first) = first {
+            return Ok(first.into_inner());
         }
-
-        let h: Helper<'de, T, TAs1, TAs2, TAs3, TAs4> = Deserialize::deserialize(deserializer)?;
-        match h {
-            Helper::First(first) => Ok(first.into_inner()),
-            Helper::Second(second) => Ok(second.into_inner()),
-            Helper::Third(third) => Ok(third.into_inner()),
-            Helper::Forth(forth) => Ok(forth.into_inner()),
-            Helper::_JustAMarkerForTheLifetime(_) => unreachable!(),
+        let second: Result<DeserializeAsWrap<T, TAs2>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(second) = second {
+            return Ok(second.into_inner());
         }
+        let third: Result<DeserializeAsWrap<T, TAs3>, D::Error> =
+            Deserialize::deserialize((&content).into_deserializer());
+        if let Ok(third) = third {
+            return Ok(third.into_inner());
+        }
+        let fourth: Result<DeserializeAsWrap<T, TAs3>, D::Error> =
+            Deserialize::deserialize(content.into_deserializer());
+        if let Ok(fourth) = fourth {
+            return Ok(fourth.into_inner());
+        }
+        Err(D::Error::custom("PickFirst could not deserialize data"))
     }
 }
 
