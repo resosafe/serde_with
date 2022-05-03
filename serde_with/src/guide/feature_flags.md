@@ -9,6 +9,7 @@ Each entry will explain the feature in more detail.
 4. [`hex`](#hex)
 5. [`json`](#json)
 6. [`macros`](#macros)
+7. [`time_0_3`](#time_0_3)
 
 ## `base64`
 
@@ -46,3 +47,10 @@ The `macros` features enables all helper macros and derives.
 It is enabled by default, since the macros provide a usability benefit, especially for `serde_as`.
 
 This pulls in `serde_with_macros` as a dependency.
+
+## `time_0_3`
+
+The `time_0_3` enables integration of `time` v0.3 specific conversions.
+This includes support for the timestamp and duration types.
+
+This pulls in `time` v0.3 as a dependency.

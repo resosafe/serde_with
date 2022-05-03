@@ -262,9 +262,6 @@ pub mod base64;
 #[cfg(feature = "chrono")]
 #[cfg_attr(docsrs, doc(cfg(feature = "chrono")))]
 pub mod chrono;
-#[cfg(feature = "time_0_3")]
-#[cfg_attr(docsrs, doc(cfg(feature = "time_0_3")))]
-pub mod time_0_3;
 mod content;
 pub mod de;
 mod duplicate_key_impls;
@@ -280,6 +277,9 @@ pub mod json;
 pub mod rust;
 pub mod ser;
 mod serde_conv;
+#[cfg(feature = "time_0_3")]
+#[cfg_attr(docsrs, doc(cfg(feature = "time_0_3")))]
+pub mod time_0_3;
 mod utils;
 #[doc(hidden)]
 pub mod with_prefix;
@@ -747,6 +747,7 @@ pub struct BytesOrString;
 /// For example, deserializing `DurationSeconds<f64, Flexible>` will discard any subsecond precision during deserialization from `f64` and will parse a `String` as an integer number.
 ///
 /// This type also supports [`chrono::Duration`] with the `chrono`-[feature flag].
+/// This type also supports [`time::Duration`][::time_0_3::Duration] with the `time_0_3`-[feature flag].
 ///
 /// | Duration Type         | Converter                 | Available `FORMAT`s    |
 /// | --------------------- | ------------------------- | ---------------------- |
@@ -754,6 +755,8 @@ pub struct BytesOrString;
 /// | `std::time::Duration` | `DurationSecondsWithFrac` | `f64`, `String`        |
 /// | `chrono::Duration`    | `DurationSeconds`         | `i64`, `f64`, `String` |
 /// | `chrono::Duration`    | `DurationSecondsWithFrac` | `f64`, `String`        |
+/// | `time::Duration`      | `DurationSeconds`         | `i64`, `f64`, `String` |
+/// | `time::Duration`      | `DurationSecondsWithFrac` | `f64`, `String`        |
 ///
 /// # Examples
 ///
@@ -887,6 +890,7 @@ pub struct DurationSeconds<
 /// For example, deserializing `DurationSeconds<f64, Flexible>` will discard any subsecond precision during deserialization from `f64` and will parse a `String` as an integer number.
 ///
 /// This type also supports [`chrono::Duration`] with the `chrono`-[feature flag].
+/// This type also supports [`time::Duration`][::time_0_3::Duration] with the `time_0_3`-[feature flag].
 ///
 /// | Duration Type         | Converter                 | Available `FORMAT`s    |
 /// | --------------------- | ------------------------- | ---------------------- |
@@ -894,6 +898,8 @@ pub struct DurationSeconds<
 /// | `std::time::Duration` | `DurationSecondsWithFrac` | `f64`, `String`        |
 /// | `chrono::Duration`    | `DurationSeconds`         | `i64`, `f64`, `String` |
 /// | `chrono::Duration`    | `DurationSecondsWithFrac` | `f64`, `String`        |
+/// | `time::Duration`      | `DurationSeconds`         | `i64`, `f64`, `String` |
+/// | `time::Duration`      | `DurationSecondsWithFrac` | `f64`, `String`        |
 ///
 /// # Examples
 ///
@@ -1067,6 +1073,7 @@ pub struct DurationNanoSecondsWithFrac<
 /// For example, deserializing `TimestampSeconds<f64, Flexible>` will discard any subsecond precision during deserialization from `f64` and will parse a `String` as an integer number.
 ///
 /// This type also supports [`chrono::DateTime`][DateTime] with the `chrono`-[feature flag].
+/// This type also supports [`time::OffsetDateTime`][::time_0_3::OffsetDateTime] and [`time::PrimitiveDateTime`][::time_0_3::PrimitiveDateTime] with the `time_0_3`-[feature flag].
 ///
 /// | Timestamp Type            | Converter                  | Available `FORMAT`s    |
 /// | ------------------------- | -------------------------- | ---------------------- |
@@ -1076,6 +1083,10 @@ pub struct DurationNanoSecondsWithFrac<
 /// | `chrono::DateTime<Utc>`   | `TimestampSecondsWithFrac` | `f64`, `String`        |
 /// | `chrono::DateTime<Local>` | `TimestampSeconds`         | `i64`, `f64`, `String` |
 /// | `chrono::DateTime<Local>` | `TimestampSecondsWithFrac` | `f64`, `String`        |
+/// | `time::OffsetDateTime`    | `TimestampSeconds`         | `i64`, `f64`, `String` |
+/// | `time::OffsetDateTime`    | `TimestampSecondsWithFrac` | `f64`, `String`        |
+/// | `time::PrimitiveDateTime` | `TimestampSeconds`         | `i64`, `f64`, `String` |
+/// | `time::PrimitiveDateTime` | `TimestampSecondsWithFrac` | `f64`, `String`        |
 ///
 /// # Examples
 ///
@@ -1210,6 +1221,7 @@ pub struct TimestampSeconds<
 /// For example, deserializing `TimestampSeconds<f64, Flexible>` will discard any subsecond precision during deserialization from `f64` and will parse a `String` as an integer number.
 ///
 /// This type also supports [`chrono::DateTime`][DateTime] and [`chrono::NaiveDateTime`][NaiveDateTime] with the `chrono`-[feature flag].
+/// This type also supports [`time::OffsetDateTime`][::time_0_3::OffsetDateTime] and [`time::PrimitiveDateTime`][::time_0_3::PrimitiveDateTime] with the `time_0_3`-[feature flag].
 ///
 /// | Timestamp Type            | Converter                  | Available `FORMAT`s    |
 /// | ------------------------- | -------------------------- | ---------------------- |
@@ -1221,6 +1233,10 @@ pub struct TimestampSeconds<
 /// | `chrono::DateTime<Local>` | `TimestampSecondsWithFrac` | `f64`, `String`        |
 /// | `chrono::NaiveDateTime`   | `TimestampSeconds`         | `i64`, `f64`, `String` |
 /// | `chrono::NaiveDateTime`   | `TimestampSecondsWithFrac` | `f64`, `String`        |
+/// | `time::OffsetDateTime`    | `TimestampSeconds`         | `i64`, `f64`, `String` |
+/// | `time::OffsetDateTime`    | `TimestampSecondsWithFrac` | `f64`, `String`        |
+/// | `time::PrimitiveDateTime` | `TimestampSeconds`         | `i64`, `f64`, `String` |
+/// | `time::PrimitiveDateTime` | `TimestampSecondsWithFrac` | `f64`, `String`        |
 ///
 /// # Examples
 ///
