@@ -611,6 +611,79 @@ where
     }
 }
 
+
+
+impl<'de, T, K, U> DeserializeAs<'de, HashMap<K, T>> for MapSkipError<K, U>
+where
+    K: Deserialize<'de> + Eq + Hash,
+    U: DeserializeAs<'de, T>,
+{
+    fn deserialize_as<D>(deserializer: D) -> Result<HashMap<K, T>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        #[derive(serde::Deserialize)]
+        #[serde(
+            untagged,
+            bound(deserialize = "DeserializeAsWrap<T, TAs>: Deserialize<'de>")
+        )]
+        enum GoodOrError<'a, T, TAs>
+        where
+            TAs: DeserializeAs<'a, T>,
+        {
+            Good(DeserializeAsWrap<T, TAs>),
+            // This consumes one "item" when `T` errors while deserializing.
+            // This is necessary to make this work, when instead of having a direct value
+            // like integer or string, the deserializer sees a list or map.
+            Error(IgnoredAny),
+            #[serde(skip)]
+            _JustAMarkerForTheLifetime(PhantomData<&'a u32>),
+        }
+
+        struct MapVisitor<K, T, U> {
+            marker: PhantomData<fn() -> HashMap<K, T>>,
+            marker2: PhantomData<fn() -> HashMap<K, U>>,
+        }
+
+        impl<'de, K, T, U> Visitor<'de> for MapVisitor<K, T, U>
+        where
+            K: Deserialize<'de> + Eq + Hash,
+            U: DeserializeAs<'de, T>,
+        {
+            type Value = HashMap<K, T>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("a map")
+            }
+
+            fn visit_map<A>(self, mut map: A) -> Result<Self::Value, A::Error>
+            where
+                A: MapAccess<'de>,
+            {
+                let mut new_map = HashMap::with_capacity(map.size_hint().unwrap_or(0));
+
+                while let Some((key, value)) = map.next_entry()? {
+                    if let GoodOrError::<T, U>::Good(value) = value {
+                        new_map.insert(key, value.into_inner());
+                    }
+                }
+
+               
+                Ok(new_map)
+
+            }
+
+           
+        }
+
+        let visitor = MapVisitor::<K, T, U> {
+            marker: PhantomData,
+            marker2: PhantomData,
+        };
+        deserializer.deserialize_map(visitor)
+    }
+}
+
 impl<'de, Str> DeserializeAs<'de, Option<Str>> for NoneAsEmptyString
 where
     Str: FromStr,

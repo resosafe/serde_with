@@ -332,7 +332,7 @@ use serde::{Deserialize, Deserializer, Serialize, Serializer};
 #[cfg_attr(docsrs, doc(cfg(feature = "macros")))]
 #[doc(inline)]
 pub use serde_with_macros::*;
-use std::marker::PhantomData;
+use std::{marker::PhantomData, collections::HashMap};
 
 /// Separator for string-based collection de/serialization
 pub trait Separator {
@@ -1954,3 +1954,9 @@ pub struct BorrowCow;
 
 #[derive(Copy, Clone, Debug, Default)]
 pub struct VecSkipError<T>(PhantomData<T>);
+
+
+
+
+#[derive(Copy, Clone, Debug, Default)]
+pub struct MapSkipError<K, T>(PhantomData<fn() -> HashMap<K, T>>);
